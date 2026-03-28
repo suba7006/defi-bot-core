@@ -2,8 +2,8 @@
   "chainId": 56,
   "chainName": "BNB",
   "nativeToken": "BNB",
-  "safeApiBase": "https://safe-transaction-bsc.safe.global",
-  "safeApiTxService": "https://api.safe.global/tx-service/bnb",
+  "safeApiBase": "https://safe-transaction-base.safe.global",
+  "safeApiTxService": "https://api.safe.global/tx-service/base",
   "blockExplorer": "https://bscscan.com",
   "gasPriceApprox": 3000000000,
   "contracts": {
