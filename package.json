@@ -1,0 +1,9 @@
+{
+  "name": "@suba7006/defi-bot-core",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "ethers": "^6.0.0"
+  }
+}
