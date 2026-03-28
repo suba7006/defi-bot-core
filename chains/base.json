@@ -1,30 +1,31 @@
 {
-  "chainId": 56,
-  "chainName": "BNB",
-  "nativeToken": "BNB",
+  "chainId": 8453,
+  "chainName": "BASE",
+  "nativeToken": "ETH",
   "safeApiBase": "https://safe-transaction-base.safe.global",
   "safeApiTxService": "https://api.safe.global/tx-service/base",
-  "blockExplorer": "https://bscscan.com",
-  "gasPriceApprox": 3000000000,
+  "blockExplorer": "https://basescan.org",
+  "gasPriceApprox": 1000000,
   "contracts": {
-    "uniswapV3PositionManager": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
-    "uniswapV3Factory":         "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
-    "uniswapV3Router":          "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
+    "uniswapV3PositionManager": "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
+    "uniswapV3Factory":         "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+    "uniswapV3Router":          "0x2626664c2603336E57B271c5C0b26F421741e481",
     "pancakeV3PositionManager": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
     "pancakeV3Factory":         "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
-    "pancakeV3Router":          "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4"
+    "pancakeV3Router":          "0x32226588378236fd0c7c4053999f88ac0e5cac77"
   },
   "approvedTokens": {
-    "WBNB":  { "address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "decimals": 18 },
-    "WETH":  { "address": "0x2170Ed0880ac9A755fd29B2688956BD959F933F8", "decimals": 18 },
-    "BTCB":  { "address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", "decimals": 18 },
-    "USDT":  { "address": "0x55d398326f99059fF775485246999027B3197955", "decimals": 18 },
-    "USDC":  { "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", "decimals": 18 },
-    "BUSD":  { "address": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", "decimals": 18 },
-    "FDUSD": { "address": "0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409", "decimals": 18 }
+    "WETH":  { "address": "0x4200000000000000000000000000000000000006", "decimals": 18 },
+    "CBBTC": { "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", "decimals": 8  },
+    "USDC":  { "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "decimals": 6  },
+    "USDT":  { "address": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", "decimals": 6  }
   },
-  "stables": ["USDT", "USDC", "BUSD", "FDUSD", "DAI"],
-  "swapFeeOverride": {},
-  "swapRouterOverride": {},
+  "stables": ["USDC", "USDT"],
+  "swapFeeOverride": {
+    "0x4200000000000000000000000000000000000006": 500
+  },
+  "swapRouterOverride": {
+    "0x4200000000000000000000000000000000000006": "Uniswap"
+  },
   "blockedPairs": []
 }
