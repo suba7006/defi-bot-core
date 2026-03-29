@@ -334,7 +334,7 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
     let depositedUSD  = depositedByToken[tid] || 0;
     if (!depositedUSD) {
       try {
-        const db    = require('../../../src/database');
+        const db    = require(process.cwd() + '/src/database');
         const dbPos = db.db.prepare('SELECT depositedUSD FROM positions WHERE tokenId=?').get(tid);
         depositedUSD = dbPos?.depositedUSD || 0;
       } catch(e) {}
@@ -349,7 +349,7 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
 
     let openedAt = new Date();
     try {
-      const db    = require('../../../src/database');
+      const db    = require(process.cwd() + '/src/database');
       const dbPos = db.db.prepare('SELECT openedAt FROM positions WHERE tokenId=?').get(tid);
       if (dbPos?.openedAt) openedAt = new Date(dbPos.openedAt);
     } catch(e) {}
