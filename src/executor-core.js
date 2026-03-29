@@ -128,7 +128,7 @@ class ExecutorCore {
       const sourceStable = stableAddresses.find(a => a !== targetToken.toLowerCase());
       if (!sourceStable) return;
       const stableNeeded = ethers.parseUnits((usdValue * 1.02).toFixed(6), 6);
-      const amountOutMin = this._applySlippage(stableNeeded);
+      const amountOutMin = 0n; // no slippage su swap stable->stable
       console.log(`[ExecutorCore] Swap stable→stable $${usdValue.toFixed(2)} | router:${dex} | fee:${swapFeeTier}`);
       await this._approveIfNeeded(sourceStable, stableNeeded, swapRouter);
       const swapData = new ethers.Interface(ROUTER_ABI).encodeFunctionData('exactInputSingle', [{
