@@ -161,7 +161,9 @@ class ExecutorCore {
       }]);
       await this._executeSafeTx(swapRouter, swapData, 0n, 'swap_to_token');
     }
-    console.log('[ExecutorCore] Swap completato');
+    const _postDelay = (this.chainCfg && this.chainCfg.postSwapDelay) || 3000;
+    await new Promise(r => setTimeout(r, _postDelay));
+    console.log('[ExecutorCore] Swap completato (delay ' + _postDelay + 'ms)');
   }
 
   // ── Approve ───────────────────────────────────────────────────────────────

@@ -8,24 +8,56 @@
   "gasPriceApprox": 20000000000,
   "contracts": {
     "uniswapV3PositionManager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-    "uniswapV3Factory":         "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-    "uniswapV3Router":          "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    "uniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+    "uniswapV3Router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
     "pancakeV3PositionManager": null,
-    "pancakeV3Factory":         null,
-    "pancakeV3Router":          null
+    "pancakeV3Factory": null,
+    "pancakeV3Router": null
   },
   "approvedTokens": {
-    "WETH":  { "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "decimals": 18 },
-    "WBTC":  { "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "decimals": 8  },
-    "USDC":  { "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "decimals": 6  },
-    "USDT":  { "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7", "decimals": 6  },
-    "DAI":   { "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "decimals": 18 },
-    "XAUT":  { "address": "0x68749665FF8D2d112Fa859AA851F4CBA5Ca45440", "decimals": 6  },
-    "PAXG":  { "address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78", "decimals": 18 },
-    "SLVON": { "address": "0xf3e4872e6a4cf365888d93b6146a2baa7348f1a4", "decimals": 18 }
+    "WETH": {
+      "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "decimals": 18
+    },
+    "WBTC": {
+      "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "decimals": 8
+    },
+    "USDC": {
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "decimals": 6
+    },
+    "USDT": {
+      "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "decimals": 6
+    },
+    "DAI": {
+      "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "decimals": 18
+    },
+    "XAUT": {
+      "address": "0x68749665FF8D2d112Fa859AA851F4CBA5Ca45440",
+      "decimals": 6
+    },
+    "PAXG": {
+      "address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78",
+      "decimals": 18
+    },
+    "SLVON": {
+      "address": "0xf3e4872e6a4cf365888d93b6146a2baa7348f1a4",
+      "decimals": 18
+    }
   },
-  "stables": ["USDC", "USDT", "DAI"],
-  "swapFeeOverride": {},
+  "stables": [
+    "USDC",
+    "USDT",
+    "DAI"
+  ],
+  "swapFeeOverride": {
+    "0x68749665ff8d2d112fa859aa851f4cba5ca45440": 3000,
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 500
+  },
   "swapRouterOverride": {},
-  "blockedPairs": []
+  "blockedPairs": [],
+  "postSwapDelay": 15000
 }

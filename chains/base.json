@@ -8,24 +8,40 @@
   "gasPriceApprox": 1000000,
   "contracts": {
     "uniswapV3PositionManager": "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
-    "uniswapV3Factory":         "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
-    "uniswapV3Router":          "0x2626664c2603336E57B271c5C0b26F421741e481",
+    "uniswapV3Factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+    "uniswapV3Router": "0x2626664c2603336E57B271c5C0b26F421741e481",
     "pancakeV3PositionManager": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
-    "pancakeV3Factory":         "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
-    "pancakeV3Router":          "0x32226588378236fd0c7c4053999f88ac0e5cac77"
+    "pancakeV3Factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+    "pancakeV3Router": "0x32226588378236fd0c7c4053999f88ac0e5cac77"
   },
   "approvedTokens": {
-    "WETH":  { "address": "0x4200000000000000000000000000000000000006", "decimals": 18 },
-    "CBBTC": { "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", "decimals": 8  },
-    "USDC":  { "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "decimals": 6  },
-    "USDT":  { "address": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", "decimals": 6  }
+    "WETH": {
+      "address": "0x4200000000000000000000000000000000000006",
+      "decimals": 18
+    },
+    "CBBTC": {
+      "address": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+      "decimals": 8
+    },
+    "USDC": {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "decimals": 6
+    },
+    "USDT": {
+      "address": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+      "decimals": 6
+    }
   },
-  "stables": ["USDC", "USDT"],
+  "stables": [
+    "USDC",
+    "USDT"
+  ],
   "swapFeeOverride": {
     "0x4200000000000000000000000000000000000006": 500
   },
   "swapRouterOverride": {
     "0x4200000000000000000000000000000000000006": "Uniswap"
   },
-  "blockedPairs": []
+  "blockedPairs": [],
+  "postSwapDelay": 10000
 }
