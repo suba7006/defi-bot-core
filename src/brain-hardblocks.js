@@ -58,6 +58,17 @@ function applyHardBlocks(decision, state, strategy, chainId) {
     return _hold(decision, `Hard block: max ${maxPos} posizioni, idle $${idleUSD.toFixed(2)} < $${consolidT}`);
   }
 
+  // ── 2b. Open position: solo se idle >= quota per posizione ────────────
+  if (decision.action === 'open_position') {
+    const lpUSD = positions.reduce((s,p) => s + (parseFloat(p.valueUSD)||0), 0);
+    const totalCapital = idleUSD + lpUSD;
+    const quotaPerPos = totalCapital / maxPos;
+    if (idleUSD < quotaPerPos) {
+      console.log('[hardblocks] ⚠️ open bloccato: idle $' + idleUSD.toFixed(2) + ' < quota $' + quotaPerPos.toFixed(2));
+      return _hold(decision, 'Hard block: idle $' + idleUSD.toFixed(2) + ' < quota posizione $' + quotaPerPos.toFixed(2));
+    }
+  }
+
   // ── 3. Increase: solo se idle > consolidationThreshold ─────────────────
   if (decision.action === 'increase_position') {
     if (idleUSD < consolidT) {
