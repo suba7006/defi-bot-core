@@ -38,11 +38,11 @@
   ],
   "swapFeeOverride": {
     "0x4200000000000000000000000000000000000006": 500,
-    "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf": 3000
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": 3000
   },
   "swapRouterOverride": {
     "0x4200000000000000000000000000000000000006": "Uniswap",
-    "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf": "Uniswap"
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": "Uniswap"
   },
   "blockedPairs": [],
   "postSwapDelay": 10000
