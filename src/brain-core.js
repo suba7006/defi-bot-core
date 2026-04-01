@@ -292,9 +292,11 @@ async function decide(portfolioState, strategy, chainConfig, apiKey) {
   }
 
   // 4. open_position: idle < quota per posizione
+  // Usa capitalPerPosition dalla strategy invece di 1/maxPos
   if (decision.action === 'open_position') {
     const lpUSD      = positions.reduce((s, p) => s + (parseFloat(p.valueUSD) || 0), 0);
-    const quotaPerPos = (idleUSD + lpUSD) / maxPos;
+    const capPerPos  = strategy.capitalPerPosition || (1 / maxPos);
+    const quotaPerPos = (idleUSD + lpUSD) * capPerPos;
     if (idleUSD < quotaPerPos) {
       console.log(`[BrainCore] ⚠️ Hard block open: idle $${idleUSD.toFixed(2)} < quota $${quotaPerPos.toFixed(2)}`);
       decision = { action: 'hold', reason: `Hard block: idle $${idleUSD.toFixed(2)} < quota posizione $${quotaPerPos.toFixed(2)}`, params: {} };

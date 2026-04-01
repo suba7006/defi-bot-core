@@ -59,10 +59,13 @@ function applyHardBlocks(decision, state, strategy, chainId) {
   }
 
   // ── 2b. Open position: solo se idle >= quota per posizione ────────────
+  // Usa capitalPerPosition dalla strategy (es. 0.20) invece di 1/maxPos
+  // perché capitalPerPosition riflette l'allocazione intenzionale per posizione
   if (decision.action === 'open_position') {
     const lpUSD = positions.reduce((s,p) => s + (parseFloat(p.valueUSD)||0), 0);
     const totalCapital = idleUSD + lpUSD;
-    const quotaPerPos = totalCapital / maxPos;
+    const capPerPos = strategy.capitalPerPosition || (1 / maxPos);
+    const quotaPerPos = totalCapital * capPerPos;
     if (idleUSD < quotaPerPos) {
       console.log('[hardblocks] ⚠️ open bloccato: idle $' + idleUSD.toFixed(2) + ' < quota $' + quotaPerPos.toFixed(2));
       return _hold(decision, 'Hard block: idle $' + idleUSD.toFixed(2) + ' < quota posizione $' + quotaPerPos.toFixed(2));
