@@ -349,13 +349,13 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
   const chainCfg  = getChainConfig(chainId);
 
   // Carica cache
-  let _cache = null;
+  let _cachedData = null;
   if (cacheFile && fs.existsSync(cacheFile)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      _cachedData = parsed; // conserva sempre per fallback
       if (parsed?.computedAt && Date.now() - new Date(parsed.computedAt).getTime() < CACHE_TTL) {
         console.log(`[onchain-stats ${chainCfg.chainName}] Cache hit`);
-        // Ricalcola valori dipendenti da vaultNow (cambia ad ogni ciclo)
         const feesPendingUSD = (currentPositions || []).reduce((s,p) => s + parseFloat(p.feesUSD || p.unclaimedUSD || 0), 0);
         const totalFeesLifetime = (parsed.totalFeesHarvestedUSD || 0) + feesPendingUSD;
         const pnlMtM = (vaultNowUSD || 0) - (parsed.totalDepositedUSD || 0);
@@ -366,13 +366,35 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
     } catch(e) {}
   }
 
+  // Helper per ritornare cache stale senza sovrascriverla
+  function returnStaleCache(reason) {
+    if (_cachedData) {
+      console.warn(`[onchain-stats ${chainCfg.chainName}] ${reason} — uso cache stale (${_cachedData.computedAt})`);
+      const feesPendingUSD = (currentPositions || []).reduce((s,p) => s + parseFloat(p.feesUSD || p.unclaimedUSD || 0), 0);
+      const totalFeesLifetime = (_cachedData.totalFeesHarvestedUSD || 0) + feesPendingUSD;
+      const pnlMtM = (vaultNowUSD || 0) - (_cachedData.totalDepositedUSD || 0);
+      const pnlNettoReale = pnlMtM + totalFeesLifetime - (_cachedData.totalGasUSD || 0) - (_cachedData.totalSlippageUSD || 0);
+      const roiPct = (_cachedData.totalDepositedUSD || 0) > 0 ? pnlNettoReale / _cachedData.totalDepositedUSD * 100 : 0;
+      return { ..._cachedData, vaultNowUSD, feesPendingUSD, totalFeesLifetime, pnlMtM, pnlNettoReale, roiPct, roiOnChain: roiPct, fromCache: true, stale: true };
+    }
+    return null;
+  }
+
   console.log(`[onchain-stats ${chainCfg.chainName}] Fetch Safe API...`);
 
-  const [txs, allTransfers, prices] = await Promise.all([
-    fetchAllMultisigTx(safeAddress, chainId),
-    fetchAllTransfers(safeAddress, chainId),
-    getPrices(),
-  ]);
+  let txs, allTransfers, prices;
+  try {
+    [txs, allTransfers, prices] = await Promise.all([
+      fetchAllMultisigTx(safeAddress, chainId),
+      fetchAllTransfers(safeAddress, chainId),
+      getPrices(),
+    ]);
+  } catch(e) {
+    console.warn(`[onchain-stats ${chainCfg.chainName}] Safe API non disponibile: ${e.message}`);
+    const stale = returnStaleCache('Safe API non disponibile');
+    if (stale) return stale;
+    throw e;
+  }
 
   const transfersByTx = groupTransfersByTx(allTransfers);
   const nftByTx       = groupNftTransfersByTx(allTransfers);

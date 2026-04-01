@@ -43,6 +43,7 @@ async function fetchAllPages(baseUrl, delayMs = 300) {
   while (url) {
     if (page > 0) await sleep(delayMs);
     const res = await fetchWithRetry(url);
+    if (res.data?.error_msg) throw new Error(`Safe API error: ${res.data.error_msg}`);
     results.push(...(res.data.results || []));
     url = res.data.next || null;
     page++;
