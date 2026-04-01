@@ -203,6 +203,7 @@ IF exit needed but blocked (age < 48h) → hold. Do NOT open new positions.
 
 ── REBALANCE ────────────────────────────────────────────────────────────────
 If out of range AND age ≥ 2h → rebalance (recenter range on current price)
+IMPORTANT: ENTRY filters (APR, TVL, Volume) apply ONLY to new positions. They do NOT block rebalance of an existing position. If OOR → always rebalance, regardless of pool current APR.
 
 ── COLLECT FEES ────────────────────────────────────────────────────────────
 If unclaimed fees > $${strategy.compoundThreshold} → collect_fees
