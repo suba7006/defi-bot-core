@@ -206,6 +206,96 @@ function computeFees(txs, transfersByTx, depositedByToken, safeAddr, prices, cha
   return { totalFeesHarvestedUSD, feesByTokenId, feeEvents };
 }
 
+// ── Gas e slippage per tokenId ────────────────────────────────────────────
+
+/**
+ * Attribuisce gas e slippage a ciascun tokenId in base ai TX executor.
+ * - mint/increaseLiquidity/decreaseLiquidity/collect → gas al tokenId del TX
+ * - exactInputSingle (swap) → gas+slippage al mint/increase successivo entro 15 blocchi
+ * - swap non abbinati entro 15 blocchi → scartati (non contaminano altri tokenId)
+ */
+function computeGasAndSlippagePerToken(txs, transfersByTx, nftByTx, safeAddr, prices, chainId) {
+  const chainCfg    = getChainConfig(chainId);
+  const nativePrice = chainCfg.nativeToken === 'BNB' ? (prices.bnb || 600) : (prices.eth || 2000);
+  const safeAddrLow = safeAddr.toLowerCase();
+
+  const gasPerToken      = {};
+  const slippagePerToken = {};
+
+  // Ordina per blockNumber crescente
+  const sorted = [...txs].sort((a, b) => (a.blockNumber || 0) - (b.blockNumber || 0));
+
+  // Coda swap pendenti non ancora abbinati { block, gasUSD, slipUSD }
+  const pendingSwaps = [];
+
+  for (const tx of sorted) {
+    const method = tx.dataDecoded?.method;
+    const gasUSD = Number(tx.fee || 0) / 1e18 * nativePrice;
+    const block  = tx.blockNumber || 0;
+
+    // Scarta swap troppo vecchi (>15 blocchi senza position TX successiva)
+    while (pendingSwaps.length && block - pendingSwaps[0].block > 15) {
+      pendingSwaps.shift();
+    }
+
+    if (method === 'exactInputSingle') {
+      const txTransfers = transfersByTx[tx.transactionHash] || [];
+      const sent     = txTransfers.filter(t => (t.from||'').toLowerCase() === safeAddrLow && t.type === 'ERC20_TRANSFER');
+      const received = txTransfers.filter(t => (t.to||'').toLowerCase()   === safeAddrLow && t.type === 'ERC20_TRANSFER');
+      let slipUSD = 0;
+      for (const s of sent) {
+        if (!chainCfg.stables.includes((s.tokenInfo?.symbol||'').toUpperCase())) continue;
+        const sentAmt = Number(s.value||0) / 10**(s.tokenInfo?.decimals||6);
+        for (const r of received) {
+          if (chainCfg.stables.includes((r.tokenInfo?.symbol||'').toUpperCase())) continue;
+          const recUSD = tokenUSD(r.tokenInfo?.symbol, Number(r.value||0) / 10**(r.tokenInfo?.decimals||18), prices, chainId);
+          const slip   = sentAmt - recUSD;
+          if (slip > 0 && slip / sentAmt < 0.30) slipUSD += slip;
+        }
+      }
+      pendingSwaps.push({ block, gasUSD, slipUSD });
+
+    } else if (method === 'mint') {
+      const nfts    = (nftByTx[tx.transactionHash] || []).filter(n => (n.to||'').toLowerCase() === safeAddrLow);
+      if (!nfts.length) continue;
+      const tokenId = String(nfts[0].tokenId || nfts[0].tokenAddress);
+      gasPerToken[tokenId] = (gasPerToken[tokenId] || 0) + gasUSD;
+      for (const s of pendingSwaps) {
+        gasPerToken[tokenId]      = (gasPerToken[tokenId]      || 0) + s.gasUSD;
+        slippagePerToken[tokenId] = (slippagePerToken[tokenId] || 0) + s.slipUSD;
+      }
+      pendingSwaps.length = 0;
+
+    } else if (method === 'increaseLiquidity') {
+      const p0 = tx.dataDecoded?.parameters?.[0];
+      if (!p0) continue;
+      const tokenId = Array.isArray(p0.value) ? String(p0.value[0]) : String(p0.value);
+      if (!tokenId || tokenId === 'undefined') continue;
+      gasPerToken[tokenId] = (gasPerToken[tokenId] || 0) + gasUSD;
+      for (const s of pendingSwaps) {
+        gasPerToken[tokenId]      = (gasPerToken[tokenId]      || 0) + s.gasUSD;
+        slippagePerToken[tokenId] = (slippagePerToken[tokenId] || 0) + s.slipUSD;
+      }
+      pendingSwaps.length = 0;
+
+    } else if (method === 'decreaseLiquidity') {
+      const p0 = tx.dataDecoded?.parameters?.[0];
+      if (!p0) continue;
+      const tokenId = Array.isArray(p0.value) ? String(p0.value[0]) : String(p0.value);
+      if (!tokenId || tokenId === 'undefined') continue;
+      gasPerToken[tokenId] = (gasPerToken[tokenId] || 0) + gasUSD;
+
+    } else if (method === 'collect') {
+      const pv      = tx.dataDecoded?.parameters?.[0]?.value;
+      const tokenId = Array.isArray(pv) ? String(pv[0]) : (pv ? String(pv) : null);
+      if (!tokenId) continue;
+      gasPerToken[tokenId] = (gasPerToken[tokenId] || 0) + gasUSD;
+    }
+  }
+
+  return { gasPerToken, slippagePerToken };
+}
+
 // ── Calcolo slippage ──────────────────────────────────────────────────────
 
 /**
@@ -254,7 +344,7 @@ function computeSlippage(txs, transfersByTx, safeAddr, prices, chainId) {
  * @param {string} cacheFile        — path file cache JSON
  * @returns {Object} stats completo
  */
-async function computeOnchainStats(safeAddress, executorAddress, chainId, currentPositions, vaultNowUSD, cacheFile) {
+async function computeOnchainStats(safeAddress, executorAddress, chainId, currentPositions, vaultNowUSD, cacheFile, posHistoryFile) {
   const CACHE_TTL = 10 * 60 * 1000;
   const chainCfg  = getChainConfig(chainId);
 
@@ -265,7 +355,13 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
       const parsed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
       if (parsed?.computedAt && Date.now() - new Date(parsed.computedAt).getTime() < CACHE_TTL) {
         console.log(`[onchain-stats ${chainCfg.chainName}] Cache hit`);
-        return { ...parsed, vaultNowUSD, fromCache: true };
+        // Ricalcola valori dipendenti da vaultNow (cambia ad ogni ciclo)
+        const feesPendingUSD = (currentPositions || []).reduce((s,p) => s + parseFloat(p.feesUSD || p.unclaimedUSD || 0), 0);
+        const totalFeesLifetime = (parsed.totalFeesHarvestedUSD || 0) + feesPendingUSD;
+        const pnlMtM = (vaultNowUSD || 0) - (parsed.totalDepositedUSD || 0);
+        const pnlNettoReale = pnlMtM + totalFeesLifetime - (parsed.totalGasUSD || 0) - (parsed.totalSlippageUSD || 0);
+        const roiPct = (parsed.totalDepositedUSD || 0) > 0 ? pnlNettoReale / parsed.totalDepositedUSD * 100 : 0;
+        return { ...parsed, vaultNowUSD, feesPendingUSD, totalFeesLifetime, pnlMtM, pnlNettoReale, roiPct, roiOnChain: roiPct, fromCache: true };
       }
     } catch(e) {}
   }
@@ -295,10 +391,28 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
   const depositedByToken = computeDepositedByToken(txs, transfersByTx, nftByTx, safeAddrLow, prices, chainId);
   console.log(`[onchain-stats ${chainCfg.chainName}] depositedByToken: ${Object.keys(depositedByToken).length} tokenId`);
 
-  // Fee
-  const { totalFeesHarvestedUSD, feesByTokenId, feeEvents } = computeFees(
-    txs, transfersByTx, depositedByToken, safeAddrLow, prices, chainId
-  );
+  // Fee — usa positions_history.json se disponibile (fonte più affidabile: USD reale al momento del collect)
+  let totalFeesHarvestedUSD, feesByTokenId, feeEvents;
+  if (posHistoryFile) {
+    let posHistData = {};
+    try { posHistData = JSON.parse(fs.readFileSync(posHistoryFile, 'utf8')); } catch {}
+    totalFeesHarvestedUSD = 0;
+    feesByTokenId = {};
+    feeEvents = [];
+    for (const [tid, pos] of Object.entries(posHistData)) {
+      const fees = parseFloat(pos.feesCollected || 0);
+      if (fees > 0) {
+        totalFeesHarvestedUSD += fees;
+        feesByTokenId[String(tid)] = fees;
+        feeEvents.push({ date: (pos.closedAt || pos.openedAt || '').slice(0, 10), tokenId: tid, feeUSD: fees });
+      }
+    }
+    console.log(`[onchain-stats ${chainCfg.chainName}] fee da positions_history: $${totalFeesHarvestedUSD.toFixed(4)} (${feeEvents.length} eventi)`);
+  } else {
+    ({ totalFeesHarvestedUSD, feesByTokenId, feeEvents } = computeFees(
+      txs, transfersByTx, depositedByToken, safeAddrLow, prices, chainId
+    ));
+  }
 
   // Fee pendenti
   const feesPendingUSD = (currentPositions || []).reduce((s,p) =>
@@ -323,11 +437,14 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
   const aprLifetime  = totalDepositedUSD > 0 ? (totalFeesLifetime / totalDepositedUSD / daysActive * 365 * 100) : 0;
   const lpValueUSD   = (currentPositions || []).reduce((s,p) => s + parseFloat(p.valueUSD || 0), 0);
 
+  // Gas e slippage per tokenId — attribuzione reale da TX executor
+  const { gasPerToken, slippagePerToken } = computeGasAndSlippagePerToken(
+    txs, transfersByTx, nftByTx, safeAddrLow, prices, chainId
+  );
+
   // positionStats per card posizioni
   const positionStats  = {};
   let aprPonderatoNum  = 0, aprPonderatoDen = 0;
-  const nOpenPos       = Math.max(1, (currentPositions || []).length);
-  const gasPerPos      = totalGasUSD / nOpenPos;
 
   for (const p of (currentPositions || [])) {
     const tid         = String(p.tokenId);
@@ -343,8 +460,10 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
     const feesPendPos   = parseFloat(p.feesUSD || p.unclaimedUSD || 0);
     const feesTotal     = feesHarvested + feesPendPos;
     const currentVal    = parseFloat(p.valueUSD || 0);
+    const gasQ          = gasPerToken[tid] || 0;
+    const slipQ         = slippagePerToken[tid] || 0;
     const posMtM        = depositedUSD > 0 ? currentVal - depositedUSD : 0;
-    const posPnlNetto   = posMtM + feesTotal - gasPerPos;
+    const posPnlNetto   = posMtM + feesTotal - gasQ - slipQ;
     const posPnlPct     = depositedUSD > 0 ? (posPnlNetto / depositedUSD * 100) : 0;
 
     let openedAt = new Date();
@@ -363,7 +482,7 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
     positionStats[tid] = {
       tokenId: tid, depositedUSD, currentValueUSD: currentVal,
       feesHarvestedUSD: feesHarvested, feesPendingUSD: feesPendPos, feesTotalUSD: feesTotal,
-      gasQuotaUSD: gasPerPos, posMtM, posPnlNetto, posPnlPct, posApr, posAgeDays,
+      gasQuotaUSD: gasQ, slippageQuotaUSD: slipQ, posMtM, posPnlNetto, posPnlPct, posApr, posAgeDays,
       source: `onchain-stats-core-${chainCfg.chainName}`,
     };
   }
@@ -379,13 +498,13 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
     totalGasUSD, totalFeesHarvestedUSD, feesPendingUSD, totalFeesLifetime,
     feeEvents, feesByTokenId, depositedByToken,
     totalSlippageUSD, slippageEvents,
-    vaultNowUSD, pnlMtM, pnlNettoReale, roiPct,
+    vaultNowUSD, pnlMtM, pnlNettoReale, roiPct, roiOnChain: roiPct,
     aprLifetime, aprPonderato, dailyYield, monthlyYield, daysActive, lpValueUSD,
     positionStats,
   };
 
-  // Salva cache
-  if (cacheFile) {
+  // Salva cache solo se vaultNow > 0 (evita cache con dati vuoti al restart)
+  if (cacheFile && vaultNowUSD > 0) {
     try {
       fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
       fs.writeFileSync(cacheFile, JSON.stringify(result, (k,v) => typeof v==='bigint'?v.toString():v), 'utf8');
@@ -397,4 +516,4 @@ async function computeOnchainStats(safeAddress, executorAddress, chainId, curren
   return result;
 }
 
-module.exports = { computeOnchainStats, computeDeposits, computeDepositedByToken, computeFees, computeSlippage, tokenUSD, getPrices };
+module.exports = { computeOnchainStats, computeDeposits, computeDepositedByToken, computeFees, computeSlippage, computeGasAndSlippagePerToken, tokenUSD, getPrices };

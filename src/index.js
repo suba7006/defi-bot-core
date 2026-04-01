@@ -18,4 +18,7 @@ module.exports = {
 
   // Brain hard blocks
   ...require('./brain-hardblocks'),
+
+  // Brain core (bluechip bots)
+  BrainCore: require('./brain-core'),
 };
