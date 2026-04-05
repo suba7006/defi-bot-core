@@ -124,16 +124,17 @@ class ExecutorCore {
     const isTargetStable = stableAddresses.includes(targetToken.toLowerCase());
 
     if (isTargetStable) {
-      // Swap stable → stable (es. USDT → USDC)
+      // Swap stable → stable: sempre fee=100, indipendente dal fee tier della posizione
+      const stableSwapFee = 100;
       const sourceStable = stableAddresses.find(a => a !== targetToken.toLowerCase());
       if (!sourceStable) return;
       const stableNeeded = ethers.parseUnits((usdValue * 1.02).toFixed(6), 6);
-      const amountOutMin = 0n; // no slippage su swap stable->stable
-      console.log(`[ExecutorCore] Swap stable→stable $${usdValue.toFixed(2)} | router:${dex} | fee:${swapFeeTier}`);
+      const amountOutMin = 0n;
+      console.log(`[ExecutorCore] Swap stable→stable $${usdValue.toFixed(2)} | router:${dex} | fee:${stableSwapFee}`);
       await this._approveIfNeeded(sourceStable, stableNeeded, swapRouter);
       const swapData = new ethers.Interface(ROUTER_ABI).encodeFunctionData('exactInputSingle', [{
         tokenIn: ethers.getAddress(sourceStable), tokenOut: ethers.getAddress(targetToken),
-        fee: swapFeeTier, recipient: this.config.SAFE_ADDRESS,
+        fee: stableSwapFee, recipient: this.config.SAFE_ADDRESS,
         amountIn: stableNeeded, amountOutMinimum: amountOutMin, sqrtPriceLimitX96: 0n,
       }]);
       await this._executeSafeTx(swapRouter, swapData, 0n, 'swap_stable');
