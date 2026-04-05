@@ -126,9 +126,22 @@ class ExecutorCore {
     if (isTargetStable) {
       // Swap stable → stable: sempre fee=100, indipendente dal fee tier della posizione
       const stableSwapFee = 100;
-      const sourceStable = stableAddresses.find(a => a !== targetToken.toLowerCase());
-      if (!sourceStable) return;
+      // Scegli source stable con balance maggiore (evita swap se balance 0)
+      let sourceStable = null, sourceBal = 0n;
+      for (const a of stableAddresses) {
+        if (a === targetToken.toLowerCase()) continue;
+        try {
+          const sc = new ethers.Contract(ethers.getAddress(a), ERC20_ABI, this.provider);
+          const sb = await sc.balanceOf(this.config.SAFE_ADDRESS);
+          if (sb > sourceBal) { sourceBal = sb; sourceStable = a; }
+        } catch(e) {}
+      }
+      if (!sourceStable || sourceBal === 0n) return; // nessuna source stable con balance
       const stableNeeded = ethers.parseUnits((usdValue * 1.02).toFixed(6), 6);
+      if (sourceBal < stableNeeded) {
+        console.log(`[ExecutorCore] sourceStable balance insufficiente (${ethers.formatUnits(sourceBal, 6)} < ${usdValue.toFixed(2)}) — skip swap stable`);
+        return;
+      }
       const amountOutMin = 0n;
       console.log(`[ExecutorCore] Swap stable→stable $${usdValue.toFixed(2)} | router:${dex} | fee:${stableSwapFee}`);
       await this._approveIfNeeded(sourceStable, stableNeeded, swapRouter);
