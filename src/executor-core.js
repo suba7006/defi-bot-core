@@ -162,16 +162,18 @@ class ExecutorCore {
           if (sb > bestBal) { bestBal = sb; bestStable = stableAddr; }
         } catch(e) {}
       }
-      if (!bestStable) return;
+      if (!bestStable || bestBal === 0n) return;
 
       const stableNeeded = ethers.parseUnits((usdValue * 1.02).toFixed(6), 6);
+      // Cap swap amount to available balance — evita revert per balance insufficiente
+      const stableToSwap = bestBal < stableNeeded ? bestBal : stableNeeded;
       const amountOutMin = 0n; // no sandwich risk sul mint
-      console.log(`[ExecutorCore] Swap stable→token $${usdValue.toFixed(2)} (fee:${swapFeeTier}) | router:${dex}`);
-      await this._approveIfNeeded(bestStable, stableNeeded, swapRouter);
+      console.log(`[ExecutorCore] Swap stable→token $${usdValue.toFixed(2)} (fee:${swapFeeTier}) | router:${dex} | amountIn:${ethers.formatUnits(stableToSwap, 6)} USDC`);
+      await this._approveIfNeeded(bestStable, stableToSwap, swapRouter);
       const swapData = new ethers.Interface(ROUTER_ABI).encodeFunctionData('exactInputSingle', [{
         tokenIn: ethers.getAddress(bestStable), tokenOut: ethers.getAddress(targetToken),
         fee: swapFeeTier, recipient: this.config.SAFE_ADDRESS,
-        amountIn: stableNeeded, amountOutMinimum: amountOutMin, sqrtPriceLimitX96: 0n,
+        amountIn: stableToSwap, amountOutMinimum: amountOutMin, sqrtPriceLimitX96: 0n,
       }]);
       await this._executeSafeTx(swapRouter, swapData, 0n, 'swap_to_token');
     }
